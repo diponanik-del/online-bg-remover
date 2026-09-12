@@ -77,7 +77,6 @@
       border: 2px dashed #cbd5e1;
       border-radius: 22px;
       text-align: center;
-      cursor: pointer;
       transition: 0.2s;
     }
 
@@ -110,6 +109,13 @@
       color: white;
       border-radius: 10px;
       font-weight: bold;
+      cursor: pointer;
+      border: none;
+      font-size: 16px;
+    }
+
+    .upload-btn:active {
+      transform: scale(0.98);
     }
 
     #fileInput {
@@ -294,6 +300,7 @@
 <body>
 
   <header>
+
     <div class="logo">
       BG<span>Remover</span>
     </div>
@@ -302,6 +309,7 @@
       <a href="#home">Home</a>
       <a href="#how">How it works</a>
     </nav>
+
   </header>
 
 
@@ -330,17 +338,24 @@
       or click to choose an image from your device
     </p>
 
-    <div class="upload-btn">
-      Upload Image
-    </div>
+    <!-- FIXED UPLOAD BUTTON -->
 
-    <input
-      type="file"
-      id="fileInput"
-      accept="image/png,image/jpeg,image/webp"
-    >
+    <button
+      type="button"
+      class="upload-btn"
+      id="uploadBtn">
+      Upload Image
+    </button>
 
   </div>
+
+
+  <!-- File input is now OUTSIDE upload area -->
+
+  <input
+    type="file"
+    id="fileInput"
+    accept="image/png,image/jpeg,image/webp">
 
 
   <div id="loader" class="loader"></div>
@@ -357,7 +372,9 @@
         <h3>Original Image</h3>
 
         <div class="preview">
-          <img id="originalImage" alt="Original image">
+          <img
+            id="originalImage"
+            alt="Original image">
         </div>
 
       </div>
@@ -368,7 +385,9 @@
         <h3>Background Removed</h3>
 
         <div class="preview checker">
-          <img id="resultImage" alt="Background removed image">
+          <img
+            id="resultImage"
+            alt="Background removed image">
         </div>
 
       </div>
@@ -379,16 +398,16 @@
     <div class="controls">
 
       <button
+        type="button"
         class="download"
-        id="downloadBtn"
-      >
+        id="downloadBtn">
         Download PNG
       </button>
 
       <button
+        type="button"
         class="reset"
-        id="resetBtn"
-      >
+        id="resetBtn">
         Remove Another Image
       </button>
 
@@ -425,6 +444,9 @@
     const uploadArea =
       document.getElementById("uploadArea");
 
+    const uploadBtn =
+      document.getElementById("uploadBtn");
+
     const fileInput =
       document.getElementById("fileInput");
 
@@ -452,32 +474,61 @@
 
     let outputBlob = null;
 
+    let originalURL = null;
 
-    /* Open file selector */
+    let resultURL = null;
 
-    uploadArea.addEventListener("click", function () {
+
+    /* =========================
+       OPEN FILE SELECTOR
+       ========================= */
+
+    uploadBtn.addEventListener("click", function(event) {
+
+      event.stopPropagation();
 
       fileInput.click();
 
     });
 
 
-    /* File selected */
+    /* =========================
+       CLICK UPLOAD AREA
+       ========================= */
 
-    fileInput.addEventListener("change", function () {
+    uploadArea.addEventListener("click", function(event) {
 
-      if (fileInput.files.length > 0) {
-
-        processImage(fileInput.files[0]);
-
+      if (event.target === uploadBtn) {
+        return;
       }
+
+      fileInput.click();
 
     });
 
 
-    /* Drag and Drop */
+    /* =========================
+       FILE SELECTED
+       ========================= */
 
-    uploadArea.addEventListener("dragover", function (event) {
+    fileInput.addEventListener("change", function() {
+
+      const file = fileInput.files[0];
+
+      if (!file) {
+        return;
+      }
+
+      processImage(file);
+
+    });
+
+
+    /* =========================
+       DRAG OVER
+       ========================= */
+
+    uploadArea.addEventListener("dragover", function(event) {
 
       event.preventDefault();
 
@@ -486,31 +537,41 @@
     });
 
 
-    uploadArea.addEventListener("dragleave", function () {
+    /* =========================
+       DRAG LEAVE
+       ========================= */
+
+    uploadArea.addEventListener("dragleave", function() {
 
       uploadArea.classList.remove("drag");
 
     });
 
 
-    uploadArea.addEventListener("drop", function (event) {
+    /* =========================
+       DROP IMAGE
+       ========================= */
+
+    uploadArea.addEventListener("drop", function(event) {
 
       event.preventDefault();
 
       uploadArea.classList.remove("drag");
 
-      const files = event.dataTransfer.files;
+      const file = event.dataTransfer.files[0];
 
-      if (files.length > 0) {
-
-        processImage(files[0]);
-
+      if (!file) {
+        return;
       }
+
+      processImage(file);
 
     });
 
 
-    /* Process image */
+    /* =========================
+       PROCESS IMAGE
+       ========================= */
 
     async function processImage(file) {
 
@@ -524,9 +585,24 @@
       }
 
 
-      const originalURL =
-        URL.createObjectURL(file);
+      /* Clean old URLs */
 
+      if (originalURL) {
+        URL.revokeObjectURL(originalURL);
+      }
+
+      if (resultURL) {
+        URL.revokeObjectURL(resultURL);
+      }
+
+
+      outputBlob = null;
+
+
+      /* Show original */
+
+      originalURL =
+        URL.createObjectURL(file);
 
       originalImage.src =
         originalURL;
@@ -541,7 +617,7 @@
 
 
       status.textContent =
-        "AI is preparing... The first time may take longer.";
+        "AI is preparing... Please wait. The first time may take longer.";
 
 
       try {
@@ -550,7 +626,7 @@
           await removeBackground(file);
 
 
-        const resultURL =
+        resultURL =
           URL.createObjectURL(outputBlob);
 
 
@@ -566,10 +642,14 @@
 
       catch (error) {
 
-        console.error(error);
+        console.error(
+          "Background removal error:",
+          error
+        );
+
 
         status.textContent =
-          "Unable to process this image. Please try another image.";
+          "❌ Background removal failed. Please try a smaller image or another photo.";
 
       }
 
@@ -583,13 +663,17 @@
     }
 
 
-    /* Download PNG */
+    /* =========================
+       DOWNLOAD PNG
+       ========================= */
 
-    downloadBtn.addEventListener("click", function () {
+    downloadBtn.addEventListener("click", function() {
 
       if (!outputBlob) {
 
-        alert("Please process an image first.");
+        alert(
+          "Please process an image first."
+        );
 
         return;
 
@@ -614,7 +698,9 @@
 
       document.body.appendChild(link);
 
+
       link.click();
+
 
       link.remove();
 
@@ -624,13 +710,16 @@
     });
 
 
-    /* Reset */
+    /* =========================
+       RESET
+       ========================= */
 
-    resetBtn.addEventListener("click", function () {
+    resetBtn.addEventListener("click", function() {
 
       fileInput.value = "";
 
-      result.style.display = "none";
+      result.style.display =
+        "none";
 
       originalImage.src = "";
 
@@ -639,6 +728,22 @@
       outputBlob = null;
 
       status.textContent = "";
+
+      if (originalURL) {
+
+        URL.revokeObjectURL(originalURL);
+
+        originalURL = null;
+
+      }
+
+      if (resultURL) {
+
+        URL.revokeObjectURL(resultURL);
+
+        resultURL = null;
+
+      }
 
     });
 
