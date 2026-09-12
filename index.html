@@ -1,192 +1,513 @@
-<script>
-const uploadArea = document.querySelector(".upload-area");
-const uploadBtn = document.querySelector(".upload-btn");
-const fileInput = document.getElementById("fileInput");
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-let selectedFile = null;
+    <title>Online BG Remover</title>
 
-/* =========================
-   UPLOAD BUTTON
-========================= */
-
-uploadBtn.addEventListener("click", function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    fileInput.click();
-});
-
-
-/* =========================
-   FILE SELECT
-========================= */
-
-fileInput.addEventListener("change", function(e) {
-
-    const file = e.target.files[0];
-
-    if (!file) return;
-
-    selectedFile = file;
-
-    console.log("Image selected:", file.name);
-
-    // Show selected image
-    const imageURL = URL.createObjectURL(file);
-
-    const originalImage = document.getElementById("originalImage");
-
-    if (originalImage) {
-        originalImage.src = imageURL;
-    }
-
-    // Show result section if available
-    const result = document.getElementById("result");
-
-    if (result) {
-        result.style.display = "block";
-    }
-
-    const status = document.getElementById("status");
-
-    if (status) {
-        status.textContent = "Image selected: " + file.name;
-    }
-
-    // Start background removal
-    processImage(file);
-});
-
-
-/* =========================
-   DRAG & DROP
-========================= */
-
-uploadArea.addEventListener("dragover", function(e) {
-    e.preventDefault();
-});
-
-uploadArea.addEventListener("drop", function(e) {
-
-    e.preventDefault();
-
-    const file = e.dataTransfer.files[0];
-
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-        alert("Please select an image file.");
-        return;
-    }
-
-    selectedFile = file;
-
-    const imageURL = URL.createObjectURL(file);
-
-    const originalImage = document.getElementById("originalImage");
-
-    if (originalImage) {
-        originalImage.src = imageURL;
-    }
-
-    processImage(file);
-});
-
-
-/* =========================
-   BACKGROUND REMOVAL
-========================= */
-
-async function processImage(file) {
-
-    const status = document.getElementById("status");
-
-    if (status) {
-        status.textContent = "Loading AI background remover...";
-    }
-
-    try {
-
-        // Load AI library ONLY after image is selected
-        const module = await import(
-            "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm"
-        );
-
-        const removeBackground = module.default || module.removeBackground;
-
-        if (!removeBackground) {
-            throw new Error("Background removal library failed to load.");
+    <style>
+        * {
+            box-sizing: border-box;
         }
 
-        if (status) {
-            status.textContent = "Removing background... Please wait.";
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f8fb;
+            color: #173b4d;
         }
 
-        const resultBlob = await removeBackground(file, {
-            model: "isnet_quint8",
+        .container {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 30px 16px 60px;
+        }
 
-            progress: function(key, current, total) {
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
 
-                if (total) {
-                    const percent = Math.round(
-                        (current / total) * 100
-                    );
+        h1 {
+            margin: 0;
+            color: #087f8c;
+            font-size: 32px;
+        }
 
-                    if (status) {
-                        status.textContent =
-                            "Processing... " + percent + "%";
-                    }
-                }
+        .subtitle {
+            margin-top: 10px;
+            color: #607d8b;
+            font-size: 16px;
+        }
+
+        .upload-area {
+            background: white;
+            border: 2px dashed #19a7b8;
+            border-radius: 18px;
+            padding: 45px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.06);
+        }
+
+        .upload-area:hover {
+            background: #f0fcff;
+        }
+
+        .upload-icon {
+            font-size: 55px;
+            margin-bottom: 15px;
+        }
+
+        .upload-area h2 {
+            margin: 10px 0;
+            font-size: 22px;
+        }
+
+        .upload-area p {
+            color: #78909c;
+            margin-bottom: 20px;
+        }
+
+        .upload-btn {
+            border: none;
+            background: #087f8c;
+            color: white;
+            padding: 13px 28px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .upload-btn:hover {
+            background: #056873;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        #status {
+            margin: 25px 0;
+            padding: 15px;
+            border-radius: 10px;
+            background: white;
+            text-align: center;
+            color: #455a64;
+            display: none;
+        }
+
+        .results {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .image-card {
+            background: white;
+            padding: 15px;
+            border-radius: 16px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.06);
+        }
+
+        .image-card h3 {
+            text-align: center;
+            margin-top: 0;
+        }
+
+        .image-box {
+            width: 100%;
+            min-height: 250px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border-radius: 12px;
+            background:
+                linear-gradient(45deg, #eeeeee 25%, transparent 25%),
+                linear-gradient(-45deg, #eeeeee 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #eeeeee 75%),
+                linear-gradient(-45deg, transparent 75%, #eeeeee 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+        }
+
+        .image-box img {
+            max-width: 100%;
+            max-height: 450px;
+            display: block;
+        }
+
+        .download-container {
+            text-align: center;
+            margin-top: 25px;
+        }
+
+        #downloadBtn {
+            display: none;
+            border: none;
+            background: #16a085;
+            color: white;
+            padding: 14px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #downloadBtn:hover {
+            background: #12816b;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            color: #90a4ae;
+            font-size: 14px;
+        }
+
+        @media (max-width: 700px) {
+            h1 {
+                font-size: 27px;
             }
+
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .upload-area {
+                padding: 35px 15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <header>
+            <h1>Online BG Remover</h1>
+            <div class="subtitle">
+                Remove image background directly in your browser
+            </div>
+        </header>
+
+        <div class="upload-area" id="uploadArea">
+
+            <div class="upload-icon">🖼️</div>
+
+            <h2>Upload Your Image</h2>
+
+            <p>
+                Select an image from your phone or computer
+            </p>
+
+            <button class="upload-btn" id="uploadBtn" type="button">
+                Choose Image
+            </button>
+
+            <input
+                type="file"
+                id="fileInput"
+                accept="image/*"
+            >
+
+        </div>
+
+        <div id="status"></div>
+
+        <div class="results" id="result">
+
+            <div class="results-grid">
+
+                <div class="image-card">
+
+                    <h3>Original Image</h3>
+
+                    <div class="image-box">
+                        <img id="originalImage" alt="Original image">
+                    </div>
+
+                </div>
+
+                <div class="image-card">
+
+                    <h3>Background Removed</h3>
+
+                    <div class="image-box">
+                        <img id="resultImage" alt="Background removed image">
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="download-container">
+
+                <button id="downloadBtn" type="button">
+                    Download PNG
+                </button>
+
+            </div>
+
+        </div>
+
+        <footer>
+            Online BG Remover
+        </footer>
+
+    </div>
+
+    <script type="module">
+
+        const uploadArea = document.getElementById("uploadArea");
+        const uploadBtn = document.getElementById("uploadBtn");
+        const fileInput = document.getElementById("fileInput");
+
+        const originalImage = document.getElementById("originalImage");
+        const resultImage = document.getElementById("resultImage");
+
+        const resultSection = document.getElementById("result");
+        const status = document.getElementById("status");
+        const downloadBtn = document.getElementById("downloadBtn");
+
+        let resultURL = null;
+
+        uploadBtn.addEventListener("click", function(event) {
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            fileInput.click();
+
         });
 
-        const resultURL = URL.createObjectURL(resultBlob);
 
-        const resultImage =
-            document.getElementById("resultImage");
+        uploadArea.addEventListener("click", function(event) {
 
-        if (resultImage) {
-            resultImage.src = resultURL;
+            if (event.target === uploadBtn) {
+                return;
+            }
+
+            fileInput.click();
+
+        });
+
+
+        fileInput.addEventListener("change", function(event) {
+
+            const file = event.target.files[0];
+
+            if (!file) {
+                return;
+            }
+
+            if (!file.type.startsWith("image/")) {
+
+                alert("Please select a valid image.");
+
+                return;
+            }
+
+            handleImage(file);
+
+        });
+
+
+        uploadArea.addEventListener("dragover", function(event) {
+
+            event.preventDefault();
+
+            uploadArea.style.background = "#f0fcff";
+
+        });
+
+
+        uploadArea.addEventListener("dragleave", function() {
+
+            uploadArea.style.background = "white";
+
+        });
+
+
+        uploadArea.addEventListener("drop", function(event) {
+
+            event.preventDefault();
+
+            uploadArea.style.background = "white";
+
+            const file = event.dataTransfer.files[0];
+
+            if (!file) {
+                return;
+            }
+
+            if (!file.type.startsWith("image/")) {
+
+                alert("Please select an image file.");
+
+                return;
+            }
+
+            handleImage(file);
+
+        });
+
+
+        async function handleImage(file) {
+
+            try {
+
+                const imageURL = URL.createObjectURL(file);
+
+                originalImage.src = imageURL;
+
+                resultSection.style.display = "block";
+
+                status.style.display = "block";
+
+                status.textContent =
+                    "Image selected. Preparing AI background remover...";
+
+                downloadBtn.style.display = "none";
+
+                resultImage.removeAttribute("src");
+
+                await processImage(file);
+
+            } catch (error) {
+
+                console.error(error);
+
+                status.textContent =
+                    "Something went wrong: " + error.message;
+
+            }
+
         }
 
-        if (status) {
-            status.textContent =
-                "Background removed successfully!";
+
+        async function processImage(file) {
+
+            try {
+
+                status.textContent =
+                    "Loading AI background remover...";
+
+                const module = await import(
+                    "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm"
+                );
+
+                const removeBackground =
+                    module.default;
+
+                if (!removeBackground) {
+
+                    throw new Error(
+                        "Background removal library could not be loaded."
+                    );
+
+                }
+
+                status.textContent =
+                    "AI model is loading. First time may take several minutes...";
+
+                const blob = await removeBackground(file, {
+
+                    progress: function(key, current, total) {
+
+                        if (total && total > 0) {
+
+                            const percent =
+                                Math.round(
+                                    (current / total) * 100
+                                );
+
+                            status.textContent =
+                                "Processing: " + percent + "%";
+
+                        }
+
+                    }
+
+                });
+
+                if (!blob) {
+
+                    throw new Error(
+                        "No result was returned."
+                    );
+
+                }
+
+                if (resultURL) {
+
+                    URL.revokeObjectURL(resultURL);
+
+                }
+
+                resultURL =
+                    URL.createObjectURL(blob);
+
+                resultImage.src = resultURL;
+
+                status.textContent =
+                    "Background removed successfully!";
+
+                downloadBtn.style.display =
+                    "inline-block";
+
+            } catch (error) {
+
+                console.error(
+                    "Background removal error:",
+                    error
+                );
+
+                status.textContent =
+                    "Background removal failed: " +
+                    error.message;
+
+                alert(
+                    "Background removal failed. Please wait for the AI model to load and try again."
+                );
+
+            }
+
         }
 
-        const downloadBtn =
-            document.getElementById("downloadBtn");
 
-        if (downloadBtn) {
+        downloadBtn.addEventListener("click", function() {
 
-            downloadBtn.style.display = "inline-block";
+            if (!resultURL) {
+                return;
+            }
 
-            downloadBtn.onclick = function() {
+            const link =
+                document.createElement("a");
 
-                const link = document.createElement("a");
+            link.href = resultURL;
 
-                link.href = resultURL;
-                link.download = "background-removed.png";
+            link.download =
+                "background-removed.png";
 
-                document.body.appendChild(link);
+            document.body.appendChild(link);
 
-                link.click();
+            link.click();
 
-                document.body.removeChild(link);
-            };
-        }
+            document.body.removeChild(link);
 
-    } catch (error) {
+        });
 
-        console.error("Background removal error:", error);
+    </script>
 
-        if (status) {
-            status.textContent =
-                "Error: " + error.message;
-        }
-
-        alert(
-            "Background removal could not start. Please try again."
-        );
-    }
-}
-</script>
+</body>
+</html>
